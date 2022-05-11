@@ -8,7 +8,7 @@
 import SwiftUI
 
 //MARK: Modifier that can be used like refreshable() on iOS 14
-struct PullToRefreshModifier: ViewModifier {
+struct PullToRefreshModifier<CustomProgressView: View>: ViewModifier {
     
     @State private var initialPosition: CGFloat = -777
     @State private var task: Task<Void, Never>?
@@ -19,16 +19,27 @@ struct PullToRefreshModifier: ViewModifier {
     @State private var isThresholdPassed: Bool = false
     @State private var offset: CGFloat = 0
     let action: () async -> Void
+    let customProgressView: CustomProgressView
     private let progressViewSize: CGFloat = 50  //You can change this
+    
+    init(action: @escaping () async -> Void,  @ViewBuilder content: () -> CustomProgressView) {
+     self.customProgressView = content()
+     self.action = action
+ }
     
     func body(content: Content) -> some View {
         ZStack(alignment:.top) {
             
             //MARK: ProgressView Area
             if isRefreshing{
-                //You can modify this
-                ProgressView()
-                    .progressViewStyle(CustomProgressViewStyle())
+                Group{
+                    if CustomProgressView.self != EmptyView.self {
+                        customProgressView
+                    }else{
+                        ProgressView()
+                            .progressViewStyle(CustomProgressViewStyle())
+                    }
+                }
                 
                 //Don't change below
                     .frame(width: progressViewSize, height: progressViewSize)
@@ -114,10 +125,27 @@ struct PullToRefreshModifier: ViewModifier {
     
 }
 
-//MARK: extension for usability
+//MARK: Custom init used when user doesn't provees a custom loading view
+extension PullToRefreshModifier where CustomProgressView == EmptyView{
+    init(action: @escaping () async -> Void) {
+        self.init(action: action,content: {EmptyView()})
+    }
+}
+
+//MARK: extensions for usability
 extension View{
-    func pullToRefresh(action: @escaping () async -> Void) -> some View {
-        modifier(PullToRefreshModifier(action: action))
+  
+    func pullToRefresh<Content:View>(action: @escaping () async -> Void, @ViewBuilder loadingView: () -> Content) -> some View  {
+
+            modifier(PullToRefreshModifier(action: action,content: loadingView))
+
+        
+    }
+    func pullToRefresh(action: @escaping () async -> Void) -> some View  {
+
+            modifier(PullToRefreshModifier(action: action))
+
+        
     }
 }
 
